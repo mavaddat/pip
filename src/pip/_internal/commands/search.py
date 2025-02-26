@@ -5,7 +5,7 @@ import textwrap
 import xmlrpc.client
 from collections import OrderedDict
 from optparse import Values
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import Dict, List, Optional, TypedDict
 
 from pip._vendor.packaging.version import parse as parse_version
 
@@ -19,13 +19,11 @@ from pip._internal.network.xmlrpc import PipXmlrpcTransport
 from pip._internal.utils.logging import indent_log
 from pip._internal.utils.misc import write_output
 
-if TYPE_CHECKING:
-    from typing import TypedDict
 
-    class TransformedHit(TypedDict):
-        name: str
-        summary: str
-        versions: List[str]
+class TransformedHit(TypedDict):
+    name: str
+    summary: str
+    versions: List[str]
 
 
 logger = logging.getLogger(__name__)
@@ -76,9 +74,8 @@ class SearchCommand(Command, SessionCommandMixin):
         try:
             hits = pypi.search({"name": query, "summary": query}, "or")
         except xmlrpc.client.Fault as fault:
-            message = "XMLRPC request failed [code: {code}]\n{string}".format(
-                code=fault.faultCode,
-                string=fault.faultString,
+            message = (
+                f"XMLRPC request failed [code: {fault.faultCode}]\n{fault.faultString}"
             )
             raise CommandError(message)
         assert isinstance(hits, list)
@@ -91,7 +88,7 @@ def transform_hits(hits: List[Dict[str, str]]) -> List["TransformedHit"]:
     packages with the list of versions stored inline. This converts the
     list from pypi into one we can use.
     """
-    packages: Dict[str, "TransformedHit"] = OrderedDict()
+    packages: Dict[str, TransformedHit] = OrderedDict()
     for hit in hits:
         name = hit["name"]
         summary = hit["summary"]
