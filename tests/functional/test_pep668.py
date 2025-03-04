@@ -9,7 +9,7 @@ from tests.lib import PipTestEnvironment, create_basic_wheel_for_package
 from tests.lib.venv import VirtualEnvironment
 
 
-@pytest.fixture()
+@pytest.fixture
 def patch_check_externally_managed(virtualenv: VirtualEnvironment) -> None:
     # Since the tests are run from a virtual environment, and we can't
     # guarantee access to the actual stdlib location (where EXTERNALLY-MANAGED
@@ -40,6 +40,22 @@ def patch_check_externally_managed(virtualenv: VirtualEnvironment) -> None:
 def test_fails(script: PipTestEnvironment, arguments: List[str]) -> None:
     result = script.pip(*arguments, "pip", expect_error=True)
     assert "I am externally managed" in result.stderr
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        pytest.param(["install"], id="install"),
+        pytest.param(["install", "--dry-run"], id="install-dry-run"),
+        pytest.param(["uninstall", "-y"], id="uninstall"),
+    ],
+)
+@pytest.mark.usefixtures("patch_check_externally_managed")
+def test_succeeds_when_overridden(
+    script: PipTestEnvironment, arguments: List[str]
+) -> None:
+    result = script.pip(*arguments, "pip", "--break-system-packages")
+    assert "I am externally managed" not in result.stderr
 
 
 @pytest.mark.parametrize(
