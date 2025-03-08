@@ -8,14 +8,18 @@ import zipfile
 import zipimport
 from typing import Iterator, List, Optional, Sequence, Set, Tuple
 
-from pip._vendor.packaging.utils import NormalizedName, canonicalize_name
+from pip._vendor.packaging.utils import (
+    InvalidWheelFilename,
+    NormalizedName,
+    canonicalize_name,
+    parse_wheel_filename,
+)
 
 from pip._internal.metadata.base import BaseDistribution, BaseEnvironment
-from pip._internal.models.wheel import Wheel
 from pip._internal.utils.deprecation import deprecated
 from pip._internal.utils.filetypes import WHEEL_EXTENSION
 
-from ._compat import BadMetadata, BasePath, get_dist_name, get_info_location
+from ._compat import BadMetadata, BasePath, get_dist_canonical_name, get_info_location
 from ._dists import Distribution
 
 logger = logging.getLogger(__name__)
@@ -26,7 +30,9 @@ def _looks_like_wheel(location: str) -> bool:
         return False
     if not os.path.isfile(location):
         return False
-    if not Wheel.wheel_file_re.match(os.path.basename(location)):
+    try:
+        parse_wheel_filename(os.path.basename(location))
+    except InvalidWheelFilename:
         return False
     return zipfile.is_zipfile(location)
 
@@ -61,14 +67,13 @@ class _DistributionFinder:
         for dist in importlib.metadata.distributions(path=[location]):
             info_location = get_info_location(dist)
             try:
-                raw_name = get_dist_name(dist)
+                name = get_dist_canonical_name(dist)
             except BadMetadata as e:
                 logger.warning("Skipping %s due to %s", info_location, e.reason)
                 continue
-            normalized_name = canonicalize_name(raw_name)
-            if normalized_name in self._found_names:
+            if name in self._found_names:
                 continue
-            self._found_names.add(normalized_name)
+            self._found_names.add(name)
             yield dist, info_location
 
     def find(self, location: str) -> Iterator[BaseDistribution]:
@@ -150,8 +155,9 @@ class _DistributionFinder:
 def _emit_egg_deprecation(location: Optional[str]) -> None:
     deprecated(
         reason=f"Loading egg at {location} is deprecated.",
-        replacement="to use pip for package installation.",
-        gone_in=None,
+        replacement="to use pip for package installation",
+        gone_in="25.1",
+        issue=12330,
     )
 
 
@@ -174,15 +180,16 @@ class Environment(BaseEnvironment):
         for location in self._paths:
             yield from finder.find(location)
             for dist in finder.find_eggs(location):
-                # _emit_egg_deprecation(dist.location)  # TODO: Enable this.
+                _emit_egg_deprecation(dist.location)
                 yield dist
             # This must go last because that's how pkg_resources tie-breaks.
             yield from finder.find_linked(location)
 
     def get_distribution(self, name: str) -> Optional[BaseDistribution]:
+        canonical_name = canonicalize_name(name)
         matches = (
             distribution
             for distribution in self.iter_all_distributions()
-            if distribution.canonical_name == canonicalize_name(name)
+            if distribution.canonical_name == canonical_name
         )
         return next(matches, None)

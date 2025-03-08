@@ -2,16 +2,11 @@ import contextlib
 import functools
 import os
 import sys
-from typing import TYPE_CHECKING, List, Optional, Type, cast
+from typing import List, Literal, Optional, Protocol, Type, cast
 
 from pip._internal.utils.misc import strtobool
 
 from .base import BaseDistribution, BaseEnvironment, FilesystemWheel, MemoryWheel, Wheel
-
-if TYPE_CHECKING:
-    from typing import Protocol
-else:
-    Protocol = object
 
 __all__ = [
     "BaseDistribution",
@@ -30,7 +25,7 @@ def _should_use_importlib_metadata() -> bool:
     """Whether to use the ``importlib.metadata`` or ``pkg_resources`` backend.
 
     By default, pip uses ``importlib.metadata`` on Python 3.11+, and
-    ``pkg_resourcess`` otherwise. This can be overridden by a couple of ways:
+    ``pkg_resources`` otherwise. This can be overridden by a couple of ways:
 
     * If environment variable ``_PIP_USE_IMPORTLIB_METADATA`` is set, it
       dictates whether ``importlib.metadata`` is used, regardless of Python
@@ -50,6 +45,7 @@ def _should_use_importlib_metadata() -> bool:
 
 
 class Backend(Protocol):
+    NAME: 'Literal["importlib", "pkg_resources"]'
     Distribution: Type[BaseDistribution]
     Environment: Type[BaseEnvironment]
 
@@ -70,7 +66,7 @@ def get_default_environment() -> BaseEnvironment:
 
     This returns an Environment instance from the chosen backend. The default
     Environment instance should be built from ``sys.path`` and may use caching
-    to share instance state accorss calls.
+    to share instance state across calls.
     """
     return select_backend().Environment.default()
 
