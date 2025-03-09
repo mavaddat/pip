@@ -169,9 +169,9 @@ def get_header_scheme_path_for_script(
 ) -> Path:
     command = (
         "from pip._internal.locations import get_scheme;"
-        "scheme = get_scheme({!r});"
+        f"scheme = get_scheme({dist_name!r});"
         "print(scheme.headers);"
-    ).format(dist_name)
+    )
     result = script.run("python", "-c", command).stdout
     return Path(result.strip())
 
@@ -190,12 +190,11 @@ def test_install_from_wheel_with_headers(script: PipTestEnvironment) -> None:
     dist_info_folder = script.site_packages / "headers.dist-0.1.dist-info"
     result.did_create(dist_info_folder)
 
-    header_scheme_path = get_header_scheme_path_for_script(script, "headers.dist")
+    header_scheme_path = get_header_scheme_path_for_script(script, "headers-dist")
     header_path = header_scheme_path / "header.h"
     assert header_path.read_text() == header_text
 
 
-@pytest.mark.usefixtures("with_wheel")
 def test_install_wheel_with_target(
     script: PipTestEnvironment, shared_data: TestData, tmpdir: Path
 ) -> None:
@@ -216,7 +215,6 @@ def test_install_wheel_with_target(
     result.did_create(Path("scratch") / "target" / "simpledist")
 
 
-@pytest.mark.usefixtures("with_wheel")
 def test_install_wheel_with_target_and_data_files(
     script: PipTestEnvironment, data: TestData
 ) -> None:
@@ -406,7 +404,7 @@ def test_wheel_record_lines_have_updated_hash_for_scripts(
     ]
 
 
-@pytest.mark.usefixtures("enable_user_site", "with_wheel")
+@pytest.mark.usefixtures("enable_user_site")
 def test_install_user_wheel(
     script: PipTestEnvironment, shared_data: TestData, tmpdir: Path
 ) -> None:
